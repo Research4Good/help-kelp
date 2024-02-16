@@ -3,6 +3,10 @@
 #
 # https://www.kaggle.com/code/prambim/tf-autoencoders-landsat-cold-springs-fire
 #
+import rasterio
+from glob import glob
+from pathlib import Path
+import shutil, os, sys
 
 from tensorflow.keras.layers import Input, Dense, BatchNormalization
 from tensorflow.keras.models import Model 
@@ -13,10 +17,7 @@ from skimage import exposure
 from tensorflow.keras.callbacks import Callback
 from tensorflow.keras.callbacks import EarlyStopping
 
-import rasterio
-from glob import glob
-from pathlib import Path
-
+import matplotlib.pyplot as plt
 
 img_dir = 'kelp/train_features.tar_MLIC14m/train_satellite' 
 lab_dir = 'kelp/train_labels.tar_l8u2RP0/train_kelp'
@@ -26,26 +27,29 @@ meta_df.query('type == "kelp"')
 meta_df=meta_df.sort_values('filename').query( 'in_train == True')
 meta_df.head()
 
-
 file = Path( lab_dir, meta_df['tile_id'].values[0] + '_kelp.tif' )
 with rasterio.open(file) as src:    
     label=src.read(1)
 
 data = []
-for d in range(1):
+for d in range(100):
  file = Path( img_dir, meta_df['tile_id'].values[d] + '_satellite.tif' )
  with rasterio.open(file) as src:
   dd= np.transpose(src.read([1,2,3,4,5,6,7]), (1, 2, 0))
   data.append( dd )
   
 # Stack the data along a new dimension
-stacked = np.array(data)[0,:]
+stacked = np.array(data)
 
-# Print the shape of the stacked data
-print(stacked.shape)
+num_samples = stacked.shape[0] * stacked.shape[1] * stacked.shape[2]
+num_features = stacked.shape[-1]
+stacked_2d = np.reshape(stacked, (num_samples, num_features))
+
+print(stacked_2d.shape)  
+
 
 # Define the autoencoder model
-input_size = stacked.shape[2]  # number of input features
+input_size = stacked.shape[-1]  # number of input features
 encoding_size = 3  # size of the encoded representation
 
 # Input layer
@@ -77,11 +81,6 @@ decoded = Dense(input_size, activation='sigmoid')(decoded)  # Last layer of deco
 autoencoder = Model(input_layer, decoded)
 autoencoder.summary()
 
-num_samples = stacked.shape[0] * stacked.shape[1]
-num_features = stacked.shape[2]
-stacked_2d = np.reshape(stacked, (num_samples, num_features))
-
-print(stacked_2d.shape)  
 
 # Define R-Squared
 def r_squared(y_true, y_pred):
