@@ -1,6 +1,7 @@
-# tensorflow==2.14
 tensorflow_hub==0.15
 tqdm==4.65
 torchvision==0.14.1
 albumentations==1.3.1
 flax==0.8.1
+# tensorflow==2.14
+# spectral==0.23.1
