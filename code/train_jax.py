@@ -3,7 +3,7 @@ import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
 
 from spectral import imshow 
 
-import os, sys, cv2
+import os, sys
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -1357,4 +1357,3 @@ else:
     else:
         raise TypeError(f'CFG.pretrained has incorrect type {type(CFG.pretrained)}')
 
-        
