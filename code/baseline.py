@@ -7,46 +7,24 @@
 from tensorflow.keras.layers import Input, Dense, BatchNormalization
 from tensorflow.keras.models import Model
 
-# Define the autoencoder model
-input_size = [350,350,7]  # number of input features
-encoding_size = 3  # size of the encoded representation
-
-# Input layer
-input_layer = Input(shape=(input_size,))
-
-# Encoding layers
-encoded = Dense(encoding_size * 16, activation='relu')(input_layer)
-encoded = BatchNormalization()(encoded)
-encoded = Dense(encoding_size * 8, activation='relu')(encoded)
-encoded = BatchNormalization()(encoded)
-encoded = Dense(encoding_size * 4, activation='relu')(encoded)
-encoded = BatchNormalization()(encoded)
-encoded = Dense(encoding_size * 2, activation='relu')(encoded)
-encoded = BatchNormalization()(encoded)
-encoded = Dense(encoding_size, activation='sigmoid')(encoded)  # Last layer of encoding with sigmoid
-
-# Decoding layers
-decoded = Dense(encoding_size * 2, activation='relu')(encoded)
-decoded = BatchNormalization()(decoded)
-decoded = Dense(encoding_size * 4, activation='relu')(decoded)
-decoded = BatchNormalization()(decoded)
-decoded = Dense(encoding_size * 8, activation='relu')(decoded)
-decoded = BatchNormalization()(decoded)
-decoded = Dense(encoding_size * 16, activation='relu')(decoded)
-decoded = BatchNormalization()(decoded)
-decoded = Dense(input_size, activation='sigmoid')(decoded)  # Last layer of decoding with sigmoid
-
-# Autoencoder model
-autoencoder = Model(input_layer, decoded)
+import rasterio
+from glob import glob
+from pathlib import Path
 
 
-# FLATTENING THE DATA
-# Reshape the data
-num_samples = stacked.shape[0] * stacked.shape[1]
-num_features = stacked.shape[2]
-stacked_2d = np.reshape(stacked, (num_samples, num_features))
 
-print(stacked_2d.shape)  # Should print (43542, 7)
+img_dir = 'kelp/train_features.tar_MLIC14m/train_satellite' 
+lab_dir = 'kelp/train_labels.tar_l8u2RP0/train_kelp'
+ 
+meta_df=pd.read_csv('kelp/metadata_fTq0l2T.csv')
+meta_df.query('type == "kelp"')
+meta_df=meta_df.sort_values('filename').query( 'in_train == True')
+meta_df.head()
+
+
+file = Path( lab_dir, meta_df['tile_id'].values[0] + '_kelp.tif' )
+with rasterio.open(file) as src:    
+    label=src.read(1)
 
 # COMPILING THE MODEL
 # Importing necessary libraries
