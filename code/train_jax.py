@@ -326,14 +326,7 @@ def best_fn(metrics: Dict[str, float]):
     # these metrics look the most relevant to me, this function will be used to determine the best checkpoint
     return metrics['precision'] + metrics['recall'] + metrics['iou1'] + metrics['miou']
 
-
-channels = range(1,8)    
-train_df, test_df = train_test_split( subset, test_size=CFG.test_size, random_state=CFG.seed)
-train_dataset = Dataset(train_df, channels=channels, transform=None)
-test_dataset = Dataset(test_df, channels=channels)
-# all: x,y=train_dataset.__getitem__(4310)
-x,y=train_dataset.__getitem__(431)
-
+ 
 if 0:
     for d in range(7):
         plt.figure()  
@@ -343,6 +336,3 @@ if 0:
     plt.figure()
     fig=px.imshow( y.squeeze(), title = 'Kelp mask' )
     fig.show()
-
-subset = meta_df.query( f'kelp_areas > {CFG.frac}')
-print(CFG.frac, '>>', subset.shape)
