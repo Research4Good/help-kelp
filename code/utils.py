@@ -59,7 +59,7 @@ def rescale( pixels, verbose=False ):
     return pixels*255
 
 
-class Dataset(Dataset):
+class Satellite_Dataset(Dataset):
     """
     Args:
         df - pandas.DataFrame with columns (image, mask, region)
