@@ -91,6 +91,21 @@ class CFG:
     model = 'DeepLabV3_ResNet101'
 
 
+class LOSS:
+    # see more detailed explanation in 'Train / eval step, loss function, metrics' section
+    # tversky loss
+    alpha = 0.3
+    beta = 0.7
+    # focal-tversky loss
+    gamma = 1.0
+    # weights for mIOU loss, delta - IOU class 0, theta - IOU class 1
+    delta = 0.2
+    theta = 0.8
+    # combination parameter for focal-tversky loss and mIOU
+    mu = 0.5
+    # smooth parameter to prevent zero-division
+    smooth = 1e-8
+
 
 def get_model(name: str, only_dct: bool = False, dct: Dict[str, Any] = None):
     res = [None, None]
@@ -160,8 +175,6 @@ def create_learning_rate_fn(ttl_iters: int):
             CFG.scheduler_params[key] = ttl_iters
     
     return scheduler(**CFG.scheduler_params)
-
-
 
 
 
