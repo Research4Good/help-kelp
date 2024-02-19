@@ -327,12 +327,166 @@ def best_fn(metrics: Dict[str, float]):
     return metrics['precision'] + metrics['recall'] + metrics['iou1'] + metrics['miou']
 
  
-if 0:
-    for d in range(7):
-        plt.figure()  
-        i=x[:,:,d]
-        fig=px.imshow( i, title = f'Band{d}: [{i.min()},{i.max()}]' )
-        fig.show()    
-    plt.figure()
-    fig=px.imshow( y.squeeze(), title = 'Kelp mask' )
-    fig.show()
+def main(rng: Any, train_df: Any, test_df: Any):
+    # hyperparameters
+    epochs = CFG.epochs
+    test_size = CFG.test_size
+    batch_size = CFG.batch_size
+    shape = CFG.shape
+    channels = CFG.channels
+    num_workers = CFG.num_workers
+    
+    if 0:
+        # define transformations
+        transform = albu.Compose([
+            albu.Rotate((-45, 45)),
+            albu.HorizontalFlip (p=0.5),
+            albu.VerticalFlip(p=0.5),
+            albu.RandomBrightnessContrast(0.1, 0.1)
+        ])
+
+    # create datasets
+    train_dataset = Satellite_Dataset(train_df, channels=channels, transform=None )
+    test_dataset = Satellite_Dataset(test_df, channels=channels)
+
+    # create dataloaders
+    train_loader = DataLoader(train_dataset, 
+                              batch_size=batch_size, 
+                              drop_last=True, 
+                              shuffle=True, 
+                              pin_memory=False, 
+                              num_workers=num_workers)
+    
+    test_loader = DataLoader(test_dataset, 
+                             batch_size=batch_size, 
+                             drop_last=True, 
+                             shuffle=False, 
+                             pin_memory=False, 
+                             num_workers=num_workers)
+    
+    # total steps
+    ttl_iters = epochs * len(train_loader)
+    
+    # create lr_function
+    lr_fn = create_learning_rate_fn(ttl_iters)
+    
+    # init PRNG and state
+    rng, init_rng = jax.random.split(rng)
+    state = create_train_state(jax.random.split(init_rng, jax.device_count()),
+                               lr_fn,
+                               shape)
+    
+    # clear ckpt folder if it exists
+    if os.path.exists(CFG.ckpt_path):
+        shutil.rmtree(CFG.ckpt_path)
+
+    # get model metadata
+    model_dct, _ = get_model(CFG.model, only_dct=True)
+    metadata_dct = [class_to_dct(CFG), model_dct, class_to_dct(LOSS)]
+    
+    # create checkpoint saver
+    if USE_ORBAX_WITH_FLAX:
+        orbax_checkpointer = PyTreeCheckpointer()
+        # we use 8 cores at the same time, so we have 8 copies of state, use unreplicate to get a single copy
+        ckpt = {'state': jax_utils.unreplicate(state)}
+        for metadata_idx, metadata in enumerate(CFG.metadata):
+            ckpt[metadata] = metadata_dct[metadata_idx]
+        save_args = orbax_utils.save_args_from_target(ckpt)
+        save_dct = {'state': None}
+        for metadata_idx, metadata in enumerate(CFG.metadata):
+            save_dct[metadata] = metadata_dct[metadata_idx]
+        
+    else:
+        metadata_ckptr = Checkpointer(JsonCheckpointHandler())
+        for metadata_idx, metadata in enumerate(CFG.metadata):
+            metadata_ckptr.save(CFG.ckpt_path + '/' + metadata, 
+                                metadata_dct[metadata_idx], 
+                                force=True)
+        ckptr = Checkpointer(PyTreeCheckpointHandler())
+    
+    # train cycle
+    best_metrics = 0.0
+    for epoch in range(epochs):
+        state = train_epoch(state, train_loader, epoch, lr_fn)
+        metrics = test_epoch(state, test_loader, epoch)
+        # we use 8 cores at the same time, so we have 8 copies state, use unreplicate to get a single copy
+        save_state = jax_utils.unreplicate(state)
+        
+        comb_metrics = best_fn(metrics)
+        if USE_ORBAX_WITH_FLAX:
+            if comb_metrics > best_metrics:
+                if os.path.exists(CFG.ckpt_path):
+                    shutil.rmtree(CFG.ckpt_path)
+                best_metrics = comb_metrics
+                ckpt['state'] = save_state
+                save_args = orbax_utils.save_args_from_target(ckpt)
+                orbax_checkpointer.save(CFG.ckpt_path, ckpt, save_args=save_args)
+        else:
+            if comb_metrics > best_metrics:
+                best_metrics = comb_metrics
+                ckptr.save(CFG.ckpt_path + '/ckpt', save_state, force=True)
+    
+    return state
+
+# retrieve model, state and metadata from stored local checkpoint for inference stage
+def inference(path: str, local: bool = False):
+    metadata_dct = []
+    
+    if USE_ORBAX_WITH_FLAX:
+        print( path )
+        orbax_checkpointer = PyTreeCheckpointer()
+        raw_restored = orbax_checkpointer.restore(path)
+        restored_state = raw_restored['state']
+        
+        for metadata in CFG.metadata:
+            restored_dct = raw_restored[metadata]
+            metadata_dct.append(restored_dct)
+    else:
+        if len(os.listdir(path)) > 1:
+            ckptr = Checkpointer(PyTreeCheckpointHandler())
+            restored_state = ckptr.restore(path + '/ckpt')
+
+            metadata_ckptr = Checkpointer(JsonCheckpointHandler())
+            metadata_path = CFG.pretrained if local else CFG.ckpt_path
+
+            for metadata in CFG.metadata:
+                restored_dct = metadata_ckptr.restore(metadata_path + '/' + metadata)
+                metadata_dct.append(restored_dct)
+        else:
+            orbax_checkpointer = PyTreeCheckpointer()
+            raw_restored = orbax_checkpointer.restore(path)
+            restored_state = raw_restored['state']
+        
+            for metadata in CFG.metadata:
+                restored_dct = raw_restored[metadata]
+                metadata_dct.append(restored_dct)
+
+    config_dct = metadata_dct[0]
+    model_dct = metadata_dct[1]
+    
+    _, model = get_model(config_dct['model'], dct=model_dct)
+    return model, restored_state, metadata_dct
+
+
+# predict mask using loaded model, state and input image
+def predict(model: Any, state: Any, img: Any):
+    jnp_img = jnp.array(img, dtype=jnp.float32)[jnp.newaxis, :, :, :]
+    logits = model.apply({'params': state['params'], 
+                          'batch_stats': state['batch_stats']},
+                         jnp_img,
+                         train=False)
+    preds = nn.activation.sigmoid(logits) > 0.5
+    return preds
+
+# vizualize results
+def vizualize(model: Any, state: Any, img: Any, mask: Any, name: str):
+    # img - array from read_img function
+    preds = predict(model, state, img)
+        
+    fig, axs = plt.subplots(1, 2)
+    fig.suptitle(name, x=0.5, y=0.785)
+
+    _ = axs[0].imshow(preds[0])
+    _ = axs[1].imshow(mask)
+    
+    
