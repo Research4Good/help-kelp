@@ -79,7 +79,7 @@ class Satellite_Dataset(Dataset):
         return len(self.df)
     
     def _read_img(self, path: str, channels: List[int]):
-        path = img_dir + path + '_satellite.tif'
+        path = self.img_dir + path + '_satellite.tif'
         if channels:
             img = rasterio.open(path).read(channels).transpose((1, 2, 0))
         else:
@@ -90,7 +90,7 @@ class Satellite_Dataset(Dataset):
         return img
     
     def _read_mask(self, path: str):
-        path = lab_dir + path + '_kelp.tif'
+        path = self.lab_dir + path + '_kelp.tif'
         mask = rasterio.open(path).read().transpose((1, 2, 0))
         mask = np.int32(mask)
         return mask
