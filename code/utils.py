@@ -14,7 +14,7 @@ from flax import struct, jax_utils
 from flax.training.common_utils import shard
 import optax
 from sklearn.model_selection import train_test_split
-from tqdm import tqdm
+from tqdm import tqdm, trange
 import functools
 from typing import Any, List, Type, Union, Optional, Dict
 #import albumentations as albu
