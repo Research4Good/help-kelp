@@ -67,9 +67,11 @@ class Satellite_Dataset(Dataset):
         inference - use the test mode
         channels - list of channels that to be used
     """
-    def __init__(self, df: Any, transform: Any = None, inference: bool = False, channels: List[int] = None):      
+    def __init__(self, df: Any, img_dir, lab_dir: Any = None, transform: Any = None, inference: bool = False, channels: List[int] = None):      
         self.df = df
-        self.transform = transform
+        self.img_dir = img_dir
+        self.lab_dir = lab_dir
+        self.transform = transformfea
         self.inference = inference
         self.channels = channels
             
