@@ -71,7 +71,7 @@ class Satellite_Dataset(Dataset):
         self.df = df
         self.img_dir = img_dir
         self.lab_dir = lab_dir
-        self.transform = transformfea
+        self.transform = transform
         self.inference = inference
         self.channels = channels
             
