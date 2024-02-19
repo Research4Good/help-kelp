@@ -145,4 +145,3 @@ def checker( a, b, n=50 ):
     plt.imshow(res)    
     return res, x0, x, r1
 
-res, x0, x, r1 = checker( rescale(img[:,:,1]), label )
