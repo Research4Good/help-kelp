@@ -20,7 +20,7 @@ from typing import Any, List, Type, Union, Optional, Dict
 #import albumentations as albu
 
 from numpy import clip
-import plotly.express as px
+# import plotly.express as px
 
 import random
 import shutil
