@@ -101,12 +101,23 @@ class Satellite_Dataset(Dataset):
         #path = row['image']  # fire landsat
         path = row['tile_id'] 
         
-        image = self._read_img( path, self.channels)
+        try:
+            image = self._read_img( path, self.channels)
+        except:
+            image = np.zeros( (350,350,7) ) 
+            print('Cannot read image')
+            
          
         if self.inference:
             return image
         
-        mask = self._read_mask( path )
+        try:
+            mask = self._read_mask( path )
+        except:
+            mask = np.zeros( (350,350,1) ) 
+            print('Cannot read mask')
+
+        
         if self.transform:
             sample = self.transform(image=image, mask=mask)
             image, mask = sample['image'], sample['mask']
