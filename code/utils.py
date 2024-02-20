@@ -92,7 +92,7 @@ class Satellite_Dataset(Dataset):
     def _read_mask(self, path: str):
         path = self.lab_dir + path + '_kelp.tif'
         mask = rasterio.open(path).read().transpose((1, 2, 0))
-        mask = np.int32(mask)
+        mask = np.uint8(mask>0)
         return mask
 
     def __getitem__(self, idx: int):
@@ -106,17 +106,14 @@ class Satellite_Dataset(Dataset):
         except:
             image = np.zeros( (350,350,7) ) 
             print('Cannot read image')
-            
-         
+                     
         if self.inference:
-            return image
-        
+            return image        
         try:
             mask = self._read_mask( path )
         except:
             mask = np.zeros( (350,350,1) ) 
             print('Cannot read mask')
-
         
         if self.transform:
             sample = self.transform(image=image, mask=mask)
