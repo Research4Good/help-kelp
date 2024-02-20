@@ -84,9 +84,12 @@ class Satellite_Dataset(Dataset):
             img = rasterio.open(path).read(channels).transpose((1, 2, 0))
         else:
             img = rasterio.open(path).read().transpose((1, 2, 0))
-        # normalize values to [0, 1] interval
-        for d in range(img.shape[2] ):
-            img[:,:,d] = rescale(img[:,:,d]) #np.float32(img) / 65535
+        
+        img[ img == -32768 ] = 99
+        img = np.float16(img)/ 65536        
+        if 0:
+            for d in range(img.shape[2] ):
+                img[:,:,d] = img[:,:,d] #np.float32(img) / 65535
         return img
     
     def _read_mask(self, path: str):
