@@ -56,7 +56,7 @@ def rescale( pixels, verbose=False ):
     if verbose:
         print('Mean: %.3f, Standard Deviation: %.3f' % (mean, std))        
         print( pixels.min(), pixels.max() )
-    return pixels*255
+    return pixels
 
 
 class Satellite_Dataset(Dataset):
